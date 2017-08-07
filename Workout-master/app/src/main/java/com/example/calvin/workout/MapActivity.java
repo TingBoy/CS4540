@@ -7,6 +7,7 @@ import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -16,6 +17,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Chronometer;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -55,6 +57,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private static final long LOCATION_REQUEST_INTERVAL = 2000;
     private static final long LOCATION_REQUEST_FASTEST_INTERVAL = 1000;
     private CountDownTimer mCDTimer;
+    Chronometer myChronometer;
 
 
     ArrayList<LatLng> routePoints;
@@ -76,9 +79,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         mRequestingLocationUpdates = true;
 
         startBtn = (Button) findViewById(R.id.startBtn);
-
+        myChronometer = (Chronometer)findViewById(R.id.trackChrono);
         calcDist = (TextView)findViewById(R.id.calcDistance);
-        calcDist.setText("Put current distance here");
+        calcDist.setText("0.00 meters");
         caloriesBurnt = (TextView)findViewById(R.id.caloriesBurnt);
         caloriesBurnt.setText("Calories burned : "+totalCalories);
 
@@ -112,6 +115,18 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 .width(8));
 
         centerMap();
+
+        myChronometer.setOnChronometerTickListener(
+                new Chronometer.OnChronometerTickListener(){
+
+                    @Override
+                    public void onChronometerTick(Chronometer chronometer) {
+                        // TODO Auto-generated method stub
+                        addToPolyline(oldLocation);
+                        calcDist.setText(Math.round(distanceCovered*100.0)/100.0 + " meters");
+                    }
+                }
+        );
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -167,6 +182,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     @Override
     public void onLocationChanged(Location location) {
+        distanceCovered = distanceCovered + oldLocation.distanceTo(location);
         oldLocation = location;
         centerMap();
     }
@@ -322,7 +338,11 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     public void startTracking(View view) {
         startBtn.setText("End");
         initPolyline();
-        mCDTimer = new CountDownTimer(36000000, 1000) {
+        myChronometer.setBase(SystemClock.elapsedRealtime());
+        myChronometer.start();
+
+
+       /* mCDTimer = new CountDownTimer(36000000, 1000) {
             public void onTick(long millisUntilFinished) {
                 int mRunTimeSec = (int) ((36000000 - millisUntilFinished) / 1000);
 
@@ -334,11 +354,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             }
         };
 
-        mCDTimer.start();
+        mCDTimer.start();*/
     }
 
     public void endTracking(View view) {
         startBtn.setText("Start");
-        mCDTimer.cancel();
+        myChronometer.stop();
+        //mCDTimer.cancel();
     }
 }
