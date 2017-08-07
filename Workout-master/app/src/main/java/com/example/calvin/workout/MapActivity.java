@@ -338,6 +338,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     public void startTracking(View view) {
         startBtn.setText("End");
         initPolyline();
+        distanceCovered = 0;
         myChronometer.setBase(SystemClock.elapsedRealtime());
         myChronometer.start();
 
