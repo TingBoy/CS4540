@@ -8,6 +8,7 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.CountDownTimer;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
@@ -30,6 +31,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -39,6 +41,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import org.w3c.dom.Text;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by FugiBeast on 8/5/2017.
@@ -54,12 +57,23 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     double distanceCovered = 0;
     private Marker mCurrLocationMarker;
 
+    private final LatLng mDefaultLocation = new LatLng(-122.084, 37.422); //Googleplex
+    private boolean mLocationPermissionGranted;
+    private boolean mRequestingLocationUpdates;
+    private CameraPosition mCameraPosition;
+    private static final long LOCATION_REQUEST_INTERVAL = 2000;
+    private static final long LOCATION_REQUEST_FASTEST_INTERVAL = 1000;
+    private CountDownTimer mCDTimer;
+
+
+    ArrayList<LatLng> routePoints;
+    private Polyline line;
     Button startBtn;
     TextView calcDist;
     TextView caloriesBurnt;
     double totalCalories = 0;
 
-    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 99;
+    public static final int MY_PERMISSIONS_REQUEST_LOCATION = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,88 +82,63 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         points = new ArrayList<LatLng>();
 
+        mRequestingLocationUpdates = true;
+
         startBtn = (Button) findViewById(R.id.startBtn);
-        startBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(startBtn.getText().equals("Start")){
-                    startBtn.setText("Pause");
-                }else
-                if(startBtn.getText().equals("Pause")){
-                    startBtn.setText("Start");
-                }
-            }
-        });
+
         calcDist = (TextView)findViewById(R.id.calcDistance);
         calcDist.setText("Put current distance here");
         caloriesBurnt = (TextView)findViewById(R.id.caloriesBurnt);
         caloriesBurnt.setText("Calories burned : "+totalCalories);
 
         oldLocation= new Location("dummy data");
-        checkLocationPermission();
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.map);
 
-        mapFragment.getMapAsync(this);
+        buildGoogleApiClient();
+
     }
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        initMap();
         mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
-            Polyline polyline1 = googleMap.addPolyline(new PolylineOptions()
-                    .clickable(false)
-                    .add(   new LatLng(34.065909, -118.168578),
-                            new LatLng(34.065827, -118.168613),
-                            new LatLng(34.065676, -118.168688),
-                            new LatLng(34.065525, -118.168720),
-                            new LatLng(34.065502, -118.168758),
-                            new LatLng(34.065432, -118.168693),
-                            new LatLng(34.065339,-118.168633),
-                            new LatLng(34.065262,-118.168515),
-                            new LatLng(34.065268,-118.168417),
-                            new LatLng(34.065333,-118.168354),
-                            new LatLng(34.065395,-118.168386),
-                            new LatLng(34.065406,-118.168550))
-                    .color(Color.BLUE)
-                    .width(8));
-        //Initialize Google Play Services
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (ContextCompat.checkSelfPermission(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED) {
-                buildGoogleApiClient();
-                mMap.setMyLocationEnabled(true);
-            }
-        }
-        else {
-            buildGoogleApiClient();
-            mMap.setMyLocationEnabled(true);
-        }
 
+        Polyline polyline1 = googleMap.addPolyline(new PolylineOptions()
+                .clickable(false)
+                .add(   new LatLng(34.065909, -118.168578),
+                        new LatLng(34.065827, -118.168613),
+                        new LatLng(34.065676, -118.168688),
+                        new LatLng(34.065525, -118.168720),
+                        new LatLng(34.065502, -118.168758),
+                        new LatLng(34.065432, -118.168693),
+                        new LatLng(34.065339,-118.168633),
+                        new LatLng(34.065262,-118.168515),
+                        new LatLng(34.065268,-118.168417),
+                        new LatLng(34.065333,-118.168354),
+                        new LatLng(34.065395,-118.168386),
+                        new LatLng(34.065406,-118.168550))
+                .color(Color.BLUE)
+                .width(8));
     }
 
     protected synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(this)
+                .enableAutoManage(this, this)
                 .addConnectionCallbacks(this)
-                .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
         mGoogleApiClient.connect();
     }
 
+
+
     @Override
     public void onConnected(@Nullable Bundle bundle) {
-        mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(1000*5);
-        mLocationRequest.setFastestInterval(1000*5);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
-        }
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+
+        mapFragment.getMapAsync(this);
     }
 
     @Override
@@ -162,15 +151,38 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     }
 
+    private void createLocationRequest() {
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(LOCATION_REQUEST_INTERVAL);
+        mLocationRequest.setFastestInterval(LOCATION_REQUEST_FASTEST_INTERVAL);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY);
+    }
+
+    protected void startLocationUpdates() {
+        if (ContextCompat.checkSelfPermission(this.getApplicationContext(),
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            LocationServices.FusedLocationApi.requestLocationUpdates(
+                    mGoogleApiClient, mLocationRequest, this);
+        }
+    }
+
+    protected void stopLocationUpdates() {
+        LocationServices.FusedLocationApi.removeLocationUpdates(
+                mGoogleApiClient, this);
+    }
+
     @Override
     public void onLocationChanged(Location location) {
-        if (mCurrLocationMarker != null) {
+        /*if (mCurrLocationMarker != null) {
             mCurrLocationMarker.remove();
-        }
-        if(oldLocation.getLatitude() == 0){
-            oldLocation = location;
-        }
-        if(location != null){
+        }*/
+        oldLocation = location;
+
+
+        centerMap();
+
+        /*if(location != null){
             points.add(new LatLng(location.getLatitude(), location.getLongitude()));
             distance = oldLocation.distanceTo(location);
             oldLocation = location;
@@ -191,15 +203,15 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
         //move map camera
         mMap.moveCamera(CameraUpdateFactory.newLatLng(demo));
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(30));
+        mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
 
         //stop location updates
         if (mGoogleApiClient != null) {
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-        }
+        }*/
     }
 
-    public boolean checkLocationPermission(){
+    /*public boolean checkLocationPermission(){
         if (ContextCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -228,7 +240,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         } else {
             return true;
         }
-    }
+    }*/
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -238,16 +250,12 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                 // If request is cancelled, the result arrays are empty.
                 if (grantResults.length > 0
                         && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-
+                    initMap();
                     // Permission was granted.
                     if (ContextCompat.checkSelfPermission(this,
                             Manifest.permission.ACCESS_FINE_LOCATION)
                             == PackageManager.PERMISSION_GRANTED) {
 
-                        if (mGoogleApiClient == null) {
-                            buildGoogleApiClient();
-                        }
-                        mMap.setMyLocationEnabled(true);
                     }
 
                 } else {
@@ -287,5 +295,133 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
             startActivity(intent);
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void initMap() {
+        if (mMap == null) {
+            return;
+        }
+        /*
+         * Request location permission, so that we can get the location of the
+         * device. The result of the permission request is handled by a callback,
+         * onRequestPermissionsResult.
+         */
+        if (ContextCompat.checkSelfPermission(this.getApplicationContext(),
+                android.Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            mLocationPermissionGranted = true;
+
+            if (mRequestingLocationUpdates) {
+                createLocationRequest();
+                startLocationUpdates();
+            }
+        } else {
+            ActivityCompat.requestPermissions(this,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    1);
+        }
+        /*
+         * Get the best and most recent location of the device, which may be null in rare
+         * cases when a location is not available.
+         */
+        if (mLocationPermissionGranted) {
+            oldLocation = LocationServices.FusedLocationApi
+                    .getLastLocation(mGoogleApiClient);
+
+            mMap.setMyLocationEnabled(true);
+            mMap.getUiSettings().setMyLocationButtonEnabled(true);
+        } else {
+            mMap.setMyLocationEnabled(false);
+            mMap.getUiSettings().setMyLocationButtonEnabled(false);
+            oldLocation = null;
+        }
+
+        // Set the map's camera position to the current location of the device.
+        if (mCameraPosition != null) {
+            mMap.moveCamera(CameraUpdateFactory.newCameraPosition(mCameraPosition));
+        } else if (oldLocation != null) {
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(oldLocation.getLatitude(),
+                            oldLocation.getLongitude()), 15));
+        } else {
+            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(mDefaultLocation, 15));
+            mMap.getUiSettings().setMyLocationButtonEnabled(false);
+        }
+    }
+
+    private void centerMap() {
+        if (oldLocation != null) {
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(oldLocation.getLatitude(),
+                            oldLocation.getLongitude()), 15));
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopLocationUpdates();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mGoogleApiClient.isConnected() && !mRequestingLocationUpdates) {
+            startLocationUpdates();
+        }
+    }
+
+    private void initPolyline() {
+        if (line != null) {
+            removePolyline();
+        }
+
+        PolylineOptions pLineOptions = new PolylineOptions()
+                .width(10)
+                .color(Color.BLUE);
+        line = mMap.addPolyline(pLineOptions);
+
+        routePoints = new ArrayList<>();
+        line.setPoints(routePoints);
+    }
+
+    private void addToPolyline(Location location) {
+        routePoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
+        line.setPoints(routePoints);
+    }
+
+    private void removePolyline() {
+        line.remove();
+        line = null;
+    }
+
+    public void trackBtn(View view) {
+        if(startBtn.getText().equals("Start"))
+            startTracking(view);
+        else
+            endTracking(view);
+    }
+
+    public void startTracking(View view) {
+        startBtn.setText("End");
+        initPolyline();
+        mCDTimer = new CountDownTimer(36000000, 1000) {
+            public void onTick(long millisUntilFinished) {
+                int mRunTimeSec = (int) ((36000000 - millisUntilFinished) / 1000);
+
+                addToPolyline(oldLocation);
+            }
+
+            public void onFinish() {
+
+            }
+        };
+
+        mCDTimer.start();
+    }
+
+    public void endTracking(View view) {
+        startBtn.setText("Start");
+        mCDTimer.cancel();
     }
 }

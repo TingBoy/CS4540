@@ -15,7 +15,8 @@
         android:id="@+id/startBtn"
         android:text="Start"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:onClick="trackBtn" />
 
     <TextView
         android:id="@+id/calcDistance"
