@@ -1,11 +1,9 @@
 package com.example.calvin.workout;
 
-import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
-import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -30,18 +28,12 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
-import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
-import org.w3c.dom.Text;
-
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Created by FugiBeast on 8/5/2017.
@@ -60,7 +52,6 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
     private final LatLng mDefaultLocation = new LatLng(-122.084, 37.422); //Googleplex
     private boolean mLocationPermissionGranted;
     private boolean mRequestingLocationUpdates;
-    private CameraPosition mCameraPosition;
     private static final long LOCATION_REQUEST_INTERVAL = 2000;
     private static final long LOCATION_REQUEST_FASTEST_INTERVAL = 1000;
     private CountDownTimer mCDTimer;
@@ -119,6 +110,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                         new LatLng(34.065406,-118.168550))
                 .color(Color.BLUE)
                 .width(8));
+
+        centerMap();
     }
 
     protected synchronized void buildGoogleApiClient() {
@@ -174,73 +167,9 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     @Override
     public void onLocationChanged(Location location) {
-        /*if (mCurrLocationMarker != null) {
-            mCurrLocationMarker.remove();
-        }*/
         oldLocation = location;
-
-
         centerMap();
-
-        /*if(location != null){
-            points.add(new LatLng(location.getLatitude(), location.getLongitude()));
-            distance = oldLocation.distanceTo(location);
-            oldLocation = location;
-            distanceCovered = distanceCovered + distance;
-            calcDist.setText("Distance Covered : "+distanceCovered +" meters");
-            //calculate calories burnt here
-            //caloriesBurnt.setText("Calories burned : "+totalCalories);
-        }
-
-        //Place current location marker
-        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-        LatLng demo = new LatLng(34.065406,-118.168550);
-        points.add(latLng);
-        MarkerOptions markerOptions = new MarkerOptions();
-        markerOptions.position(demo);
-        markerOptions.title("Current Position");
-        mCurrLocationMarker = mMap.addMarker(markerOptions);
-
-        //move map camera
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(demo));
-        mMap.animateCamera(CameraUpdateFactory.zoomTo(15));
-
-        //stop location updates
-        if (mGoogleApiClient != null) {
-            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
-        }*/
     }
-
-    /*public boolean checkLocationPermission(){
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-
-            // Asking user if explanation is needed
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.ACCESS_FINE_LOCATION)) {
-
-                // Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-                //Prompt the user once explanation has been shown
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_LOCATION);
-
-
-            } else {
-                // No explanation needed, we can request the permission.
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                        MY_PERMISSIONS_REQUEST_LOCATION);
-            }
-            return false;
-        } else {
-            return true;
-        }
-    }*/
 
     @Override
     public void onRequestPermissionsResult(int requestCode,
@@ -248,24 +177,14 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         switch (requestCode) {
             case MY_PERMISSIONS_REQUEST_LOCATION: {
                 // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0
-                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     initMap();
-                    // Permission was granted.
-                    if (ContextCompat.checkSelfPermission(this,
-                            Manifest.permission.ACCESS_FINE_LOCATION)
-                            == PackageManager.PERMISSION_GRANTED) {
-
-                    }
-
                 } else {
-
                     // Permission denied, Disable the functionality that depends on this permission.
                     Toast.makeText(this, "permission denied", Toast.LENGTH_LONG).show();
                 }
                 return;
             }
-
             // other 'case' lines to check for other permissions this app might request.
             //You can add here other case statements according to your requirement.
         }
@@ -301,11 +220,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         if (mMap == null) {
             return;
         }
-        /*
-         * Request location permission, so that we can get the location of the
-         * device. The result of the permission request is handled by a callback,
-         * onRequestPermissionsResult.
-         */
+
+        //Request location permission from user so we can pull location
         if (ContextCompat.checkSelfPermission(this.getApplicationContext(),
                 android.Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -320,10 +236,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
                     new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
                     1);
         }
-        /*
-         * Get the best and most recent location of the device, which may be null in rare
-         * cases when a location is not available.
-         */
+
+         //Gets the most recent location of the device
         if (mLocationPermissionGranted) {
             oldLocation = LocationServices.FusedLocationApi
                     .getLastLocation(mGoogleApiClient);
@@ -337,9 +251,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
 
         // Set the map's camera position to the current location of the device.
-        if (mCameraPosition != null) {
-            mMap.moveCamera(CameraUpdateFactory.newCameraPosition(mCameraPosition));
-        } else if (oldLocation != null) {
+        // If it can't be found, defaults to GooglePlex
+        if (oldLocation != null) {
             mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
                     new LatLng(oldLocation.getLatitude(),
                             oldLocation.getLongitude()), 15));
@@ -349,6 +262,7 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         }
     }
 
+    //Centers the map on the device
     private void centerMap() {
         if (oldLocation != null) {
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
@@ -385,16 +299,19 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         line.setPoints(routePoints);
     }
 
+    //adds coordinates to the arraylist that will form the polyline
     private void addToPolyline(Location location) {
         routePoints.add(new LatLng(location.getLatitude(), location.getLongitude()));
         line.setPoints(routePoints);
     }
 
+    //clears existing polyline so there is no overlap
     private void removePolyline() {
         line.remove();
         line = null;
     }
 
+    //sorts between start and end tracking
     public void trackBtn(View view) {
         if(startBtn.getText().equals("Start"))
             startTracking(view);
