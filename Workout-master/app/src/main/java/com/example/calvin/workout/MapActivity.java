@@ -131,8 +131,8 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
 
     protected synchronized void buildGoogleApiClient() {
         mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .enableAutoManage(this, this)
                 .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
         mGoogleApiClient.connect();
@@ -341,26 +341,10 @@ public class MapActivity extends AppCompatActivity implements OnMapReadyCallback
         distanceCovered = 0;
         myChronometer.setBase(SystemClock.elapsedRealtime());
         myChronometer.start();
-
-
-       /* mCDTimer = new CountDownTimer(36000000, 1000) {
-            public void onTick(long millisUntilFinished) {
-                int mRunTimeSec = (int) ((36000000 - millisUntilFinished) / 1000);
-
-                addToPolyline(oldLocation);
-            }
-
-            public void onFinish() {
-
-            }
-        };
-
-        mCDTimer.start();*/
     }
 
     public void endTracking(View view) {
         startBtn.setText("Start");
         myChronometer.stop();
-        //mCDTimer.cancel();
     }
 }
